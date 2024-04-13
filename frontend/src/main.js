@@ -7,7 +7,7 @@ kaboom()
 setBackground([212, 110, 179])
 // ОБЩИЕ переменные
 const SPEED = 480;
-const MOVEMENT_DURATION = 0.2;
+const MOVEMENT_DURATION = 0.3;
 const SEND_MY_STATE_EVERY = 100;
 let leaderBoard;
 let currentWorldState;
@@ -289,7 +289,8 @@ CLIENT_SCOKET.onmessage = (event) => {
 }
 
 function subscribeToLeaderBoard (lbTextGameObject) {
-	addEventHandler(EVENTS.REGISTER, (payload) => {
+	addEventHandler(EVENTS.LEADERBOARD, (payload) => {
+		console.log('leaderboard')
 		leaderBoard = payload;
 		lbTextGameObject.text = getLbText();
 	});
@@ -594,10 +595,10 @@ scene('leaderboard', async () => {
 		go("battleground", {});
 	})
 
-	onKeyDown("left", () => player.move(-SPEED, 0))
-	onKeyDown("right", () => player.move(+SPEED, 0))
-	onKeyDown("up", () => player.move(0, -SPEED))
-	onKeyDown("down", () => player.move(0, +SPEED))
+	onKeyDown("a", () => player.move(-SPEED, 0))
+	onKeyDown("d", () => player.move(+SPEED, 0))
+	onKeyDown("w", () => player.move(0, -SPEED))
+	onKeyDown("s", () => player.move(0, +SPEED))
 })
 // LEADERBOARD SCENE END ----------------------------------------------------------------------
 
