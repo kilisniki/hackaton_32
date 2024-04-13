@@ -41,12 +41,10 @@ will build your game and package into a .zip file, you can upload to your server
 Экран лидерборда
 ✅1. подписи никнеймов
 ✅обновление лб
-отправка местоположения
-стрельба on click
-
+✅отправка местоположения
+✅стрельба on click
 
 состояние динамического игрового мира
-
 worldState
 
 Экран баттлграунда

@@ -155,6 +155,20 @@ function createPlayerObj (level) {
 	return gameObj;
 }
 
+function deleteOldUnits (newState) {
+	const field = 'players';
+	const newPlayers = newState.players.reduce((acc, el)=>{ acc[el.id] = el; }, {});
+	for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
+		const playerOnServer = newPlayers[playerId]; // достаем player
+		if (!playerOnServer) {
+			// не нашли в новом состоянии юнит, удаляем объект
+			destroy(clientWorldState[playerId].gameObj);
+			delete clientWorldState[playerId];
+		}
+	}
+}
+
+
 // UTILS END
 
 // СОКЕТЫ START ----------------------------------------------------------------------------------
@@ -219,10 +233,27 @@ function subscribeToLeaderBoard (lbTextGameObject) {
 
 function subscribeToWorldState (level, player) {
 	addEventHandler(EVENTS.WORLDSTATE, (payload) => {
+		/*
+		* нам нужно:
+		* 1. Пройтись по всем players, bullets ... найти: удаленные
+		* 2. Удалить из clientWorldState удаленные
+		* 3. Удалить из level удаленные
+		* 4. Остальные - обновить / создать
+		* 5. Создание игроков, буллетсов - добавляем эвенты onCollision()
+		* 6. Обновляется игроков: у тех у кого health = 0 - ставим texture = death
+		* 7. Обновление буллетс - анимация
+		* 8. Если у нас health = 0 - завершаем игру, переводим на новый экран
+		* 9. Создание,Обновление shatters
+		* 10. Создание, обновление улучшений
+		*
+		* */
 		console.log('world state received');
+		deleteOldUnits(payload);
 		globalPlayer.levelScore = 1;
 		globalPlayer.health = 1;
 		// TODO
+
+		currentWorldState = payload;
 	});
 }
 
@@ -236,6 +267,7 @@ function startSendState () {
 		sendEvent(EVENTS.PLAYERSTATE, {
 			id: globalPlayer.id,
 			level: globalPlayer.level,
+			health: globalPlayer.health,
 			maxHealth: globalPlayer.maxHealth,
 			texture: 'texture_1',
 			x: globalPlayer.gameObj.pos.x,
@@ -348,7 +380,6 @@ scene('welcome', async ({ levelIdx, score}) => {
 
 // LEADERBOARD SCENE START --------------------------------------------------------------
 scene('leaderboard', async () => {
-	subscribeToWorldState();
 	const user = getUser();
 	sendEvent(EVENTS.REGISTER, user);
 
@@ -437,7 +468,11 @@ scene('leaderboard', async () => {
 		}),
 		pos(520, 430),
 	]);
+
+	// подписываемся на все события
 	subscribeToLeaderBoard(lbText);
+	subscribeToWorldState(level);
+	startSendState();
 
 	player.onUpdate(() => {
 		// Set the viewport center to player.pos
@@ -497,8 +532,6 @@ scene('leaderboard', async () => {
 	onKeyDown("right", () => player.move(+SPEED, 0))
 	onKeyDown("up", () => player.move(0, -SPEED))
 	onKeyDown("down", () => player.move(0, +SPEED))
-
-	startSendState();
 })
 // LEADERBOARD SCENE END ----------------------------------------------------------------------
 
