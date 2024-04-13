@@ -6,9 +6,11 @@ import Victor from 'victor';
 kaboom()
 setBackground([212, 110, 179])
 // ОБЩИЕ переменные
-const SPEED = 480
+const SPEED = 480;
 let leaderBoard;
 let currentWorldState;
+let shotCooldown = 1_000; // 3 секунды
+let lastShot = 0;
 const globalPlayer = {
 	id: null,
 	nickname: null,
@@ -120,9 +122,8 @@ function createBulletObj (level, state) {
 	const gameObj = level.add([
 		pos(state.coordinates.x, state.coordinates.y),
 		anchor("center"),
-		// move({x: state.direction.x, y: state.direction.y}, 100),
 		sprite('bullet'),
-		rotate(0),
+		rotate(angle),
 		"bullet",
 		state.id
 	])
@@ -218,9 +219,9 @@ function subscribeToLeaderBoard (lbTextGameObject) {
 
 function subscribeToWorldState (level, player) {
 	addEventHandler(EVENTS.WORLDSTATE, (payload) => {
+		console.log('world state received');
 		globalPlayer.levelScore = 1;
 		globalPlayer.health = 1;
-
 		// TODO
 	});
 }
@@ -233,13 +234,14 @@ function startSendState () {
 			return;
 		}
 		sendEvent(EVENTS.PLAYERSTATE, {
+			id: globalPlayer.id,
 			level: globalPlayer.level,
 			maxHealth: globalPlayer.maxHealth,
 			texture: 'texture_1',
 			x: globalPlayer.gameObj.pos.x,
 			y: globalPlayer.gameObj.pos.y
 		});
-	}, 100);
+	}, 3000);
 }
 function stopSendState () {
 	clearInterval(interval);
@@ -334,8 +336,6 @@ scene('welcome', async ({ levelIdx, score}) => {
 			}
 		}
 		createUser(input.text);
-		const user = getUser();
-		sendEvent(EVENTS.REGISTER, user);
 		go('leaderboard');
 	})
 
@@ -348,6 +348,10 @@ scene('welcome', async ({ levelIdx, score}) => {
 
 // LEADERBOARD SCENE START --------------------------------------------------------------
 scene('leaderboard', async () => {
+	subscribeToWorldState();
+	const user = getUser();
+	sendEvent(EVENTS.REGISTER, user);
+
 	camScale(1);
 	const level = addLevel([
 		"===============================",
@@ -446,7 +450,11 @@ scene('leaderboard', async () => {
 
 	// стрельба, выстрел
 	onClick(() => {
-		const click = mousePos();
+		if (Date.now() - lastShot < shotCooldown) {
+			return;
+		}
+		lastShot = Date.now();
+		const click = toWorld(mousePos());
 		//k.addKaboom(k.mousePos()); // TODO spell animation
 		addKaboom(toWorld(mousePos()))
 		const from = {
@@ -457,23 +465,18 @@ scene('leaderboard', async () => {
 			x: click.x,
 			y: click.y
 		};
-		const myDirection = new Victor(
+		const direction = new Victor(
 			to.x - from.x,
 			to.y - from.y
 		).normalize();
-		console.log(from, to, myDirection);
-
-		//const direction = player.pos.sub(click).unit()
-		//console.log(direction, myDirection);
-
 		const bulletState = {
 			id: uuidv4(),
 			damage: clientWorldState.player.damage,
 			userId: clientWorldState.player.id,
 			coordinates: from,
 			direction: {
-				x: myDirection.x,
-				y: myDirection.y
+				x: direction.x,
+				y: direction.y
 			},
 			bulletSpeed: globalPlayer.bulletSpeed
 		}
@@ -508,14 +511,25 @@ scene('battleground', async () => {
 })
 // BATTLEGROUND SCENE END -------------------------------------------------------------------
 
+// WAIT CONNECT
+scene('waitconnect', async () => {
+	let interval;
+	interval = setInterval(()=> {
+		if (!connected) {
+			return;
+		}
+		clearInterval(interval);
+		const user = getUser();
+		if (!user) {
+			go('welcome', { kek: 'lol' });
+		} else {
+			go('leaderboard', { kek: 'lol' });
+		}
+	}, 1000)
+})
 
 function start () {
-	const user = getUser();
-	if (!user) {
-		go('welcome', { kek: 'lol' });
-	} else {
-		go('leaderboard', { kek: 'lol' });
-	}
+	go('waitconnect');
 }
 
 start();
