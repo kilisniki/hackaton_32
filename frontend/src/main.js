@@ -52,15 +52,25 @@ loadSound("score", "/examples/sounds/score.mp3")
 const FONT = "apl386"
 loadFont(FONT, "/examples/fonts/apl386.ttf", { outline: 4, filter: "linear" })
 
+let a = {};
+let storage = {
+	setItem: (name, value) => {
+		a[name] = value;
+	},
+	getItem(name) {
+		return a[name];
+	}
+}
+const myStorage = storage // || localStorage; TODO при выкатке не забыть поменять
 
 // UTILS START
 // создание загрузка пользователя
 function createUser(nickname) {
 	const user = { id: uuidv4(), nickname };
-	localStorage.setItem('user', JSON.stringify(user));
+	myStorage.setItem('user', JSON.stringify(user));
 }
 function getUser() {
-	let user = localStorage.getItem('user');
+	let user = myStorage.getItem('user');
 	if (user) {
 		try {
 			user = JSON.parse(user);

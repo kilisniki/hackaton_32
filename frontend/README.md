@@ -45,7 +45,12 @@ will build your game and package into a .zip file, you can upload to your server
 ✅стрельба on click
 
 состояние динамического игрового мира
-worldState
+worldState:
+1. Удаление игроков
+2. Создание игроков
+3. Обновление игроков
+4. CRUD пуль
+5. CRUD shelters
 
 Экран баттлграунда
 
