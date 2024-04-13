@@ -7,6 +7,8 @@ kaboom()
 setBackground([212, 110, 179])
 // ОБЩИЕ переменные
 const SPEED = 480;
+const MOVEMENT_DURATION = 0.2;
+const SEND_MY_STATE_EVERY = 100;
 let leaderBoard;
 let currentWorldState;
 let shotCooldown = 1_000; // 3 секунды
@@ -20,7 +22,7 @@ const globalPlayer = {
 	health: 10,
 	maxHealth: 10,
 	levelScore: 0,
-	texture: 'texture_1',
+	texture: 'bullet',
 	gameObj: null,
 	serverState: null
 };
@@ -35,6 +37,8 @@ const clientWorldState = {
 
 // Load assets
 loadSprite("bean", "/sprites/bean.png")
+loadSprite("texture_1", "/sprites/bean.png")
+
 loadSprite("coin", "/sprites/coin.png")
 loadSprite("grass", "/sprites/grass.png")
 loadSprite("shelter", "/sprites/shelter.png")
@@ -114,6 +118,21 @@ function vectorToAngle(x, y) {
 	return angle;
 }
 
+function createOtherPlayerObj (level, state) {
+	const player = level.add([
+		pos(state.x, state.y),
+		anchor("center"),
+		sprite(state.texture),
+		"otherPlayer",
+		state.id
+	]);
+	// player.onCollide("bullet", (element) => {
+	// 	console.log(127, element);
+	// 	sendEvent(EVENTS.COLLIDE, { playerId: state.id, bulletId: element.id })
+	// })
+	return player;
+}
+
 function createBulletObj (level, state) {
 	console.log(state.direction.x, state.direction.y);
 	let angle = vectorToAngle(state.direction.x, state.direction.y) - 90;
@@ -157,13 +176,57 @@ function createPlayerObj (level) {
 
 function deleteOldUnits (newState) {
 	const field = 'players';
-	const newPlayers = newState.players.reduce((acc, el)=>{ acc[el.id] = el; }, {});
+	// TODO bullets, shelters
+	const newPlayers = newState
+		.players
+		.reduce(
+			(acc, el) =>
+			{
+				console.log('acc', acc);
+				acc[el.id] = el;
+				return acc
+			},
+			{});
 	for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
 		const playerOnServer = newPlayers[playerId]; // достаем player
 		if (!playerOnServer) {
 			// не нашли в новом состоянии юнит, удаляем объект
 			destroy(clientWorldState[playerId].gameObj);
 			delete clientWorldState[playerId];
+		}
+	}
+}
+
+function createOrUpdateUnits (level, newState) {
+	//const field = 'players';
+	// TODO bullets, shelters
+	const newPlayers = newState.players.reduce((acc, el)=>{ acc[el.id] = el; return acc; }, {});
+	for (const playerId in newPlayers) { // проходимся по всем игрокам с сервера
+		const playerOnServer = newPlayers[playerId]; // достаем player
+		if(playerId === globalPlayer.id) {
+			globalPlayer.health = playerOnServer.health;
+			globalPlayer.levelScore = playerOnServer.levelScore;
+			globalPlayer.serverState = playerOnServer;
+			// TODO обработка смерти
+		}
+		const exitedUnit = clientWorldState.players[playerId];
+		if (exitedUnit) {
+			if (exitedUnit.gameObj.tween) {
+				exitedUnit.gameObj.tween.cancel()
+			}
+			exitedUnit.gameObj.tween = tween(
+				vec2(exitedUnit.gameObj.pos.x, exitedUnit.gameObj.pos.y),
+				vec2(playerOnServer.x, playerOnServer.y),
+				MOVEMENT_DURATION,
+				(val) => exitedUnit.gameObj.pos = val
+			)
+			// TODO смерть, смена текстуры
+		} else {
+			const newPlayerUnit = createOtherPlayerObj(level, playerOnServer);
+			clientWorldState.players[playerOnServer.id] = {
+				id: playerOnServer.id,
+				gameObj: newPlayerUnit
+			};
 		}
 	}
 }
@@ -177,7 +240,8 @@ const EVENTS = {
 	LEADERBOARD: 'LEADERBOARD',
 	WORLDSTATE: 'WORLDSTATE',
 	PLAYERSTATE: 'PLAYERSTATE',
-	SHOT: 'SHOT'
+	SHOT: 'SHOT',
+	COLLIDE: 'COLLIDE'
 }
 let connected;
 const CLIENT_SCOKET = new WebSocket('ws://deathmatch-ws-production.up.railway.app'); // ws://localhost:8080/
@@ -249,6 +313,7 @@ function subscribeToWorldState (level, player) {
 		* */
 		console.log('world state received');
 		deleteOldUnits(payload);
+		createOrUpdateUnits(level, payload);
 		globalPlayer.levelScore = 1;
 		globalPlayer.health = 1;
 		// TODO
@@ -273,7 +338,7 @@ function startSendState () {
 			x: globalPlayer.gameObj.pos.x,
 			y: globalPlayer.gameObj.pos.y
 		});
-	}, 3000);
+	}, SEND_MY_STATE_EVERY);
 }
 function stopSendState () {
 	clearInterval(interval);
@@ -513,7 +578,8 @@ scene('leaderboard', async () => {
 				x: direction.x,
 				y: direction.y
 			},
-			bulletSpeed: globalPlayer.bulletSpeed
+			bulletSpeed: globalPlayer.bulletSpeed,
+			createdAt: Date.now()
 		}
 		sendEvent(EVENTS.SHOT, bulletState);
 		const gameObj = createBulletObj(level, bulletState);
