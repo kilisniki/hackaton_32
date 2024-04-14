@@ -48,7 +48,9 @@ const clientWorldState = {
 loadSprite("bean", "/sprites/bean.png")
 loadSprite("texture_1", "/sprites/texture_1.png")
 loadSprite("texture_2", "/sprites/texture_2.png")
-
+loadSprite("texture_3", "/sprites/texture_2.png")
+loadSprite("texture_4", "/sprites/texture_2.png")
+loadSprite("texture_5", "/sprites/texture_2.png")
 loadSprite("coin", "/sprites/coin.png")
 loadSprite("grass", "/sprites/grass.png")
 loadSprite("shelter", "/sprites/shelter.png")
