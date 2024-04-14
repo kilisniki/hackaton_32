@@ -415,16 +415,16 @@ function addButton(txt, p, f) {
 }
 
 function getUpdateLevel (score) {
-	if (score >= 20) {
+	if (score >= 10) {
 		return 5
 	}
-	if (score >= 15) {
+	if (score >= 8) {
 		return 4
 	}
-	if (score >= 10) {
+	if (score >= 5) {
 		return 3;
 	}
-	if (score >= 5) {
+	if (score >= 3) {
 		return 2;
 	}
 	return 1;
