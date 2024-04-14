@@ -4,7 +4,9 @@ import Victor from 'victor';
 
 // Start game
 kaboom()
-setBackground([212, 110, 179])
+// setBackground([212, 110, 179])
+setBackground([0, 0, 0])
+
 // ОБЩИЕ переменные
 const SPEED = 480;
 const MOVEMENT_DURATION = 0.3;
@@ -59,6 +61,8 @@ loadSprite("portal", "/sprites/portal.png")
 loadSprite("bullet", "/sprites/bullet.png")
 loadSprite("rip", "/sprites/rip.png")
 loadSprite("hidden", "/sprites/hidden.png")
+loadSprite("logo", "/sprites/logo.png")
+
 
 
 loadSound("score", "/examples/sounds/score.mp3")
@@ -521,7 +525,13 @@ CLIENT_SCOKET.onmessage = (event) => {
 
 addEventHandler(undefined, ()=>{console.log('pong')});
 
+function subscribeUpdateLeaderBoard () {
+	addEventHandler(EVENTS.LEADERBOARD, (payload) => {
+		leaderBoard = payload;
+	});
+}
 function subscribeToLeaderBoard (lbTextGameObject) {
+	lbTextGameObject.text = getLbText();
 	addEventHandler(EVENTS.LEADERBOARD, (payload) => {
 		leaderBoard = payload;
 		lbTextGameObject.text = getLbText();
@@ -650,6 +660,9 @@ scene('welcome', async ({ levelIdx, score}) => {
 		}
 	})
 	onKeyPressRepeat("enter", () => {
+		if (!input.text || input.text.length <= 0) {
+			return;
+		}
 		// создание пользователя
 		if (leaderBoard) {
 			const alreadyExists = leaderBoard.find(el => el.nickname === input.text);
@@ -907,39 +920,43 @@ scene('battleground', async () => {
 		// };
 	})
 
-	// onCollide("bullet", "otherPlayer", (element1, element2) => {
-	// 	let playerK, bulletK;
-	// 	for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
-	// 		const player = clientWorldState.players[playerId];
-	// 		if (player.gameObj === element1) {
-	// 			playerK = player
-	// 			break;
-	// 		}
-	// 		if (player.gameObj === element2) {
-	// 			playerK = player
-	// 			break;
-	// 		}
-	// 	}
-	// 	for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
-	// 		const bullet = clientWorldState.bullets[bulletId];
-	// 		if (bullet.gameObj === element1) {
-	// 			bulletK = bullet
-	// 			break;
-	// 		}
-	// 		if (bullet.gameObj === element2) {
-	// 			bulletK = bullet
-	// 			break;
-	// 		}
-	// 	}
-	// 	if (bulletK) {
-	// 		bulletK.gameObj.use(sprite('hidden'));
-	// 	}
-	// 	if (!playerK || !bulletK) {
-	// 		console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
-	// 		return;
-	// 	}
-	// 	sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
-	// })
+	onCollide("bullet", "otherPlayer", (element1, element2) => {
+		let playerK, bulletK;
+		for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
+			const player = clientWorldState.players[playerId];
+			if (player.gameObj === element1) {
+				playerK = player
+				break;
+			}
+			if (player.gameObj === element2) {
+				playerK = player
+				break;
+			}
+		}
+		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+			const bullet = clientWorldState.bullets[bulletId];
+			if (bullet.gameObj === element1) {
+				bulletK = bullet
+				break;
+			}
+			if (bullet.gameObj === element2) {
+				bulletK = bullet
+				break;
+			}
+		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
+		if (!playerK || !bulletK) {
+			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
+			return;
+		}
+		if (bulletK.serverState.playerId === playerK.id) {
+			console.log('саповоспламенение');
+			return;
+		}
+		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
+	})
 	onCollide("bullet", "shelter", (element1, element2) => {
 		let shelterK, bulletK;
 		for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
@@ -1036,11 +1053,29 @@ scene("lose", (score) => {
 // LOSE SCENE -------------------------------------------------------------------------------<
 
 
-// WAIT CONNECT
+// WAIT CONNECT and loading
 scene('waitconnect', async () => {
+	// setBackground('black');
+	let loggedAt = Date.now();
 	let interval;
+	subscribeUpdateLeaderBoard();
+
+	add([
+		sprite('logo'),
+		pos(width() / 2, height() / 2 - 108),
+		scale(0.5),
+		anchor("center"),
+	])
+
+	add([
+		text(`Dragons.io`, { letterSpacing: 1, font: FONT }),
+		pos(width() / 2, height() / 2 + 208),
+		scale(1),
+		anchor("center"),
+	])
+
 	interval = setInterval(()=> {
-		if (!connected) {
+		if (!connected || Date.now() - loggedAt < 2500) {
 			return;
 		}
 		clearInterval(interval);
