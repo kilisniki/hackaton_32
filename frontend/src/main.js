@@ -176,7 +176,7 @@ function addHealthBar (player, maxHealth) {
 		{
 			max: maxHealth,
 			set(hp) {
-				this.width = healthBarWidth * hp / this.max
+				this.width = Math.max(healthBarWidth * hp / this.max);
 				console.log('width', this.width, hp, this.max);
 				this.flash = true
 			},
@@ -809,6 +809,7 @@ scene('leaderboard', async () => {
 scene('battleground', async () => {
 	const user = getUser();
 	currentRoom = ROOMS.battleGround;
+	setDefaultValues();
 	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
 	camScale(1); // спорно
 
