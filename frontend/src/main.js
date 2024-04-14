@@ -26,12 +26,13 @@ const globalPlayer = {
 	gameObj: null,
 	serverState: null
 };
+const MAX_HEALTH = 10;
 function setDefaultValues () {
 	globalPlayer.level = 1;
 	globalPlayer.damage = 1;
 	globalPlayer.bulletSpeed = 500;
 	globalPlayer.health = 10;
-	globalPlayer.maxHealth = 10;
+	globalPlayer.maxHealth = MAX_HEALTH;
 	globalPlayer.levelScore = 0;
 	globalPlayer.texture = 'texture_1';
 }
@@ -174,7 +175,7 @@ function addHealthBar (player, maxHealth) {
 		pos(-30, 40),
 		color(107, 201, 108),
 		{
-			max: maxHealth,
+			max: MAX_HEALTH,
 			set(hp) {
 				this.width = Math.max(healthBarWidth * hp / this.max);
 				console.log('width', this.width, hp, this.max);
