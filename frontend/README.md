@@ -66,12 +66,16 @@ worldState:
 ✅переход по комнатам
 
 Прогрессия:
-1. player level = f(levelScore / 5)
-2. player texture = f(level)
-3. damage = f(level, gains)
+1. ✅player level = f(levelScore / 5)
+2. ✅player texture = f(level)
+3. ✅damage = f(level, gains)
 4. bulletSpeed = f(level, gains)
-5. bulletCount = f (level, gains)
+5. ✅bulletCount = f (level, gains)
 6. разбрасывать gains раз в N секунд
+
+Деплой - тест
+Переделать куки на session
+Проверить все TODO
 
 боты:
 1. подключение
@@ -80,13 +84,9 @@ worldState:
 4. обход препятствий
 5. подбор gains
 
-Деплой - тест
-Переделать куки
-Проверить все TODO
-
 Красивости:
 1. подписи ников
-2. подпись health
+2. ✅ подпись health
 3. рандомизация генерации уровней - улучшенная, а не просто в тупую 
 2. бекграунд (фон) логина
 2. бекграунд лидерборда + баттла

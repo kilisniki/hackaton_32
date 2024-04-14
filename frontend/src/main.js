@@ -140,7 +140,7 @@ function vectorToAngle(x, y) {
 }
 
 function createOtherPlayerObj (level, state) {
-	return level.add([
+	const player = level.add([
 		pos(state.x, state.y),
 		anchor("center"),
 		area(),
@@ -148,6 +148,44 @@ function createOtherPlayerObj (level, state) {
 		"otherPlayer",
 		state.id
 	]);
+	if (currentRoom === ROOMS.battleGround) {
+		const healthbar = addHealthBar(player, state.maxHealth);
+		player.use({
+			setHP(health) {
+				healthbar.set(health);
+			}
+		})
+	}
+
+	return player
+}
+
+function addHealthBar (player, maxHealth) {
+	const healthBarWidth = 64;
+	const healthbar = player.add([
+		rect(healthBarWidth, 10),
+		pos(-30, 40),
+		color(107, 201, 108),
+		{
+			max: maxHealth,
+			set(hp) {
+				this.width = healthBarWidth * hp / this.max
+				console.log('width', this.width, hp, this.max);
+				this.flash = true
+			},
+		},
+	])
+
+	healthbar.onUpdate(() => {
+		if (healthbar.flash) {
+			healthbar.color = rgb(255, 255, 255)
+			healthbar.flash = false
+		} else {
+			healthbar.color = rgb(127, 255, 127)
+		}
+	})
+
+	return healthbar;
 }
 
 function createBulletObj (level, state) {
@@ -190,6 +228,15 @@ function createPlayerObj (level) {
 		"player",
 	]);
 	globalPlayer.gameObj = gameObj;
+
+	if (currentRoom === ROOMS.battleGround) {
+		const healthbar = addHealthBar(gameObj, globalPlayer.maxHealth);
+		gameObj.use({
+			setHP(health) {
+				healthbar.set(health);
+			}
+		})
+	}
 	return gameObj;
 }
 
@@ -216,10 +263,13 @@ function createOrUpdateUnits (level, newState) {
 		for (const playerId in existedUnits) { // проходимся по всем сущностям с сервера
 			const unitOnServer = existedUnits[playerId]; // достаем сущность
 			if(playerId === globalPlayer.id) {
+				globalPlayer.serverState = unitOnServer;
 				globalPlayer.health = unitOnServer.health;
 				globalPlayer.levelScore = unitOnServer.levelScore;
-				globalPlayer.serverState = unitOnServer;
-				// globalPlayer.health = 0;
+				globalPlayer.level = getUpdateLevel(globalPlayer.levelScore);
+				globalPlayer.texture = getUpdateTexture(globalPlayer.level);
+				globalPlayer.damage = getUpdateDamage(globalPlayer.level);
+				// globalPlayer.health = 0; для теста
 				if (globalPlayer.health === 0) {
 					globalPlayer.gameObj.use(sprite('rip'));
 					stopSendState();
@@ -323,6 +373,60 @@ function addButton(txt, p, f) {
 	btn.onClick(f)
 
 	return {btn, btnTxt }
+}
+
+function getUpdateLevel (score) {
+	if (score >= 20) {
+		return 5
+	}
+	if (score >= 15) {
+		return 4
+	}
+	if (score >= 10) {
+		return 3;
+	}
+	if (score >= 5) {
+		return 2;
+	}
+}
+
+function getUpdateTexture (level) {
+	switch (level) {
+		case 5:
+			return 'texture_5'
+		case 4:
+			return 'texture_4'
+		case 3:
+			return 'texture_3'
+		case 2:
+			return 'texture_2'
+		case 1:
+			return 'texture_1'
+		default:
+			return 'texture_1'
+	}
+}
+
+function getUpdateDamage (level) {
+	switch (level) {
+		case 5:
+			return 10
+		case 4:
+			return 8
+		case 3:
+			return 5
+		case 2:
+			return 4
+		case 1:
+			return 3
+		default:
+			return 'texture_1'
+	}
+}
+
+function bulletCount (level) {
+	if (level === 4) return 2;
+	return 1;
 }
 
 
@@ -451,18 +555,17 @@ addEventHandler(EVENTS.BATTLLEND, () => {
 });
 
 // РАЗРЫВ DISCONNECT
-// TODO
 CLIENT_SCOKET.onerror = function(error) {
-	// TODO здесь добавить обработку отрыва соединения
-	alert(`[error]`);
+	console.error('our socket error', error);
+	// alert(`[error]`);
 };
 CLIENT_SCOKET.onclose = function(event) {
 	if (event.wasClean) {
-		alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+		alert(`[close] Connection closed. Page will be reload.`);
 	} else {
-		// e.g. server process killed or network down event.code is usually 1006 in this case
-		alert('[close] Connection died');
+		alert(`[close] Connection died. Page will be reload.`);
 	}
+	location.reload(true);
 };
 // СОКЕТЫ END ----------------------------------------------------------------------------
 
@@ -658,7 +761,7 @@ scene('leaderboard', async () => {
 // BATTLEGROUND SCENE START -------------------------------------------------------------------
 scene('battleground', async () => {
 	const user = getUser();
-	currentRoom = ROOMS.leaderBoard;
+	currentRoom = ROOMS.battleGround;
 	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
 	camScale(1); // спорно
 
