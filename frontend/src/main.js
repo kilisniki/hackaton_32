@@ -169,7 +169,7 @@ function createOtherPlayerObj (level, state) {
 }
 
 function addHealthBar (player, maxHealth) {
-	const healthBarWidth = 64;
+	const healthBarWidth = 30;
 	const healthbar = player.add([
 		rect(healthBarWidth, 10),
 		pos(-30, 40),
@@ -198,6 +198,7 @@ function addHealthBar (player, maxHealth) {
 
 function createBulletObj (level, state) {
 	let angle = vectorToAngle(state.direction.x, state.direction.y) - 90;
+	console.log('CREATED BULLET')
 
 	const bullet = level.add([
 		pos(state.coordinates.x, state.coordinates.y),
@@ -284,12 +285,13 @@ function createOrUpdateUnits (level, newState) {
 			const unitOnServer = existedUnits[playerId]; // достаем сущность
 			if(playerId === globalPlayer.id) {
 				globalPlayer.serverState = unitOnServer;
-				if (unitOnServer.health !== globalPlayer.serverState.health) globalPlayer.gameObj.setHP(globalPlayer.serverState.health)
+				if (unitOnServer.health !== globalPlayer.serverState.health) globalPlayer.gameObj.setHP(1)
 				globalPlayer.health = unitOnServer.health;
 				globalPlayer.levelScore = 0 || unitOnServer.levelScore;
 				globalPlayer.level = getUpdateLevel(globalPlayer.levelScore);
 				globalPlayer.texture = getUpdateTexture(globalPlayer.level);
 				globalPlayer.damage = getUpdateDamage(globalPlayer.level);
+				globalPlayer.gameObj.use(sprite(globalPlayer.texture));
 				// globalPlayer.health = 0; для теста
 				if (globalPlayer.health <= 0) {
 					globalPlayer.gameObj.use(sprite('rip'));
@@ -326,6 +328,9 @@ function createOrUpdateUnits (level, newState) {
 					serverState: unitOnServer
 				};
 				clientWorldState[field][unitOnServer.id] = unitOnClient;
+				if (field === 'bullets') {
+					console.log('created bullet', clientWorldState[field][unitOnServer.id])
+				}
 			}
 			// update animation
 			if (unitOnClient.gameObj.tween) {
@@ -690,6 +695,7 @@ scene('leaderboard', async () => {
 	const user = getUser();
 	currentRoom = ROOMS.leaderBoard;
 	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
+	await (new Promise((res, rej) => setTimeout(res, 500)))
 
 	camScale(1);
 	const level = addLevel([
@@ -813,6 +819,7 @@ scene('battleground', async () => {
 	currentRoom = ROOMS.battleGround;
 	setDefaultValues();
 	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
+	await (new Promise((res, rej) => setTimeout(res, 500)))
 	camScale(1); // спорно
 
 	const level = addLevel([
@@ -916,12 +923,6 @@ scene('battleground', async () => {
 			createdAt: Date.now()
 		}
 		sendEvent(EVENTS.SHOT, bulletState);
-		// const gameObj = createBulletObj(level, bulletState);
-		// clientWorldState.bullets[bulletState.id] = {
-		// 	id: bulletState.id,
-		// 	gameObj: gameObj,
-		// 	serverState: bulletState
-		// };
 	})
 
 	onCollide("bullet", "otherPlayer", (element1, element2) => {
@@ -948,9 +949,6 @@ scene('battleground', async () => {
 				break;
 			}
 		}
-		if (bulletK) {
-			bulletK.gameObj.use(sprite('hidden'));
-		}
 		if (!playerK || !bulletK) {
 			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
 			return;
@@ -963,41 +961,44 @@ scene('battleground', async () => {
 			console.log('саповоспламенение');
 			return;
 		}
+		// if (bulletK) {
+		// 	bulletK.gameObj.use(sprite('hidden'));
+		// }
 		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
 	})
-	onCollide("bullet", "shelter", (element1, element2) => {
-		let shelterK, bulletK;
-		for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
-			const shelter = clientWorldState.shelters[shelterId];
-			if (shelter.gameObj === element1) {
-				shelterK = shelter
-				break;
-			}
-			if (shelter.gameObj === element2) {
-				shelterK = shelter
-				break;
-			}
-		}
-		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
-			const bullet = clientWorldState.bullets[bulletId];
-			if (bullet.gameObj === element1) {
-				bulletK = bullet
-				break;
-			}
-			if (bullet.gameObj === element2) {
-				bulletK = bullet
-				break;
-			}
-		}
-		if (bulletK) {
-			bulletK.gameObj.use(sprite('hidden'));
-		}
-		if (!shelterK || !bulletK) {
-			console.error('onCollide sheler-bullet error - entity not found', shelterK, bulletK);
-			return;
-		}
-		sendEvent(EVENTS.COLLIDE, { shelterId: shelterK.id, bulletId: bulletK.id })
-	})
+	// onCollide("bullet", "shelter", (element1, element2) => {
+	// 	let shelterK, bulletK;
+	// 	for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
+	// 		const shelter = clientWorldState.shelters[shelterId];
+	// 		if (shelter.gameObj === element1) {
+	// 			shelterK = shelter
+	// 			break;
+	// 		}
+	// 		if (shelter.gameObj === element2) {
+	// 			shelterK = shelter
+	// 			break;
+	// 		}
+	// 	}
+	// 	for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+	// 		const bullet = clientWorldState.bullets[bulletId];
+	// 		if (bullet.gameObj === element1) {
+	// 			bulletK = bullet
+	// 			break;
+	// 		}
+	// 		if (bullet.gameObj === element2) {
+	// 			bulletK = bullet
+	// 			break;
+	// 		}
+	// 	}
+	// 	if (bulletK) {
+	// 		bulletK.gameObj.use(sprite('hidden'));
+	// 	}
+	// 	if (!shelterK || !bulletK) {
+	// 		console.error('onCollide sheler-bullet error - entity not found', shelterK, bulletK);
+	// 		return;
+	// 	}
+	// 	sendEvent(EVENTS.COLLIDE, { shelterId: shelterK.id, bulletId: bulletK.id })
+	// })
 
 	onKeyDown("a", () => player.move(-SPEED, 0))
 	onKeyDown("d", () => player.move(+SPEED, 0))
@@ -1030,25 +1031,22 @@ scene("lose", (score) => {
 		anchor("center"),
 	])
 
+	stopSendState();
+	clearEventHandlers(EVENTS.PLAYERSTATE);
+	clearEventHandlers(EVENTS.WORLDSTATE);
+	clearEventHandlers(EVENTS.LEADERBOARD);
+	clearWorld();
+	setDefaultValues();
+
 	const WAIT_TIME = 5_000
 	addButton("Leaderboard",
 		vec2(width() / 2, height() / 2 + 208),
 		() => {
-			stopSendState();
-			clearEventHandlers(EVENTS.PLAYERSTATE);
-			clearEventHandlers(EVENTS.WORLDSTATE);
-			clearEventHandlers(EVENTS.LEADERBOARD);
-			clearWorld();
 		go('leaderboard');
 	})
 	const battleButton = addButton("To Battle!", vec2(width() / 2, height() / 2 + 308), () => {
 		const seconds = Math.ceil((WAIT_TIME - (Date.now() - startedAt)) / 1000);
 		if (seconds > 0) return;
-		stopSendState();
-		clearEventHandlers(EVENTS.PLAYERSTATE);
-		clearEventHandlers(EVENTS.WORLDSTATE);
-		clearEventHandlers(EVENTS.LEADERBOARD);
-		clearWorld();
 		go('battleground');
 	});
 	battleButton.btnTxt.onUpdate(() => {
