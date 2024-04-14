@@ -837,7 +837,7 @@ scene('waitconnect', async () => {
 		} else {
 			go('leaderboard', { kek: 'lol' });
 		}
-	}, 1000)
+	}, 500)
 })
 
 function start () {
