@@ -79,7 +79,7 @@ let storage = {
 		return a[name];
 	}
 }
-const myStorage = storage // || localStorage; TODO при выкатке не забыть поменять
+const myStorage = localStorage;
 
 // UTILS START ------------------------------------------------------------------------------------>
 
@@ -172,13 +172,12 @@ function addHealthBar (player, maxHealth) {
 	const healthBarWidth = 30;
 	const healthbar = player.add([
 		rect(healthBarWidth, 10),
-		pos(-30, 40),
+		pos(-20, 40),
 		color(107, 201, 108),
 		{
 			max: MAX_HEALTH,
 			set(hp) {
-				this.width = Math.max(healthBarWidth * hp / this.max);
-				console.log('width', this.width, hp, this.max);
+				this.width = Math.max(healthBarWidth * hp / this.max, 0);
 				this.flash = true
 			},
 		},
@@ -284,8 +283,10 @@ function createOrUpdateUnits (level, newState) {
 		for (const playerId in existedUnits) { // проходимся по всем сущностям с сервера
 			const unitOnServer = existedUnits[playerId]; // достаем сущность
 			if(playerId === globalPlayer.id) {
+				if (globalPlayer.gameObj && globalPlayer.health !== unitOnServer.health) {
+					globalPlayer.gameObj.setHP(unitOnServer.health)
+				}
 				globalPlayer.serverState = unitOnServer;
-				if (unitOnServer.health !== globalPlayer.serverState.health) globalPlayer.gameObj.setHP(1)
 				globalPlayer.health = unitOnServer.health;
 				globalPlayer.levelScore = 0 || unitOnServer.levelScore;
 				globalPlayer.level = getUpdateLevel(globalPlayer.levelScore);
@@ -357,7 +358,7 @@ function createOrUpdateUnits (level, newState) {
 			// update textures
 			switch (field) {
 				case 'players':
-					if (unitOnClient.serverState.health !== unitOnServer.health) unitOnClient.gameObj.setHP(unitOnClient.serverState.health);
+					if (unitOnClient.serverState.health !== unitOnServer.health) unitOnClient.gameObj.setHP(unitOnServer.health);
 					if (unitOnClient.serverState.health > 0) unitOnClient.gameObj.use(sprite(unitOnClient.serverState.texture));
 					else unitOnClient.gameObj.use(sprite('rip'));
 					unitOnClient.serverState = unitOnServer
@@ -774,7 +775,7 @@ scene('leaderboard', async () => {
 				angle: wave(-9, 9, time() * 3 + idx),
 			}),
 		}),
-		pos(520, 430),
+		pos(520, 380),
 	]);
 
 	// подписываемся на все события
@@ -826,34 +827,36 @@ scene('battleground', async () => {
 		"=======================================================",
 		"=                                                     =",
 		"=                                                     =",
+		"=         $$$$$$$$$                         $$        =",
+		"=                $$$$$$$$                             =",
+		"=                       $                             =",
+		"=                       $                             =",
+		"=           $$$         $                             =",
+		"=        $$$$$$$                     $                =",
+		"=       $$$$$$$$$$$$                 $                =",
+		"=        $$$                         $$               =",
+		"=         $$                         $$               =",
+		"=          $                          $$              =",
+		"=          $                          $$              =",
+		"=          $       $                   $              =",
+		"=                  $                   $$             =",
+		"=                  $                    $             =",
+		"=                  $                    $             =",
+		"=             $$$$$$                    $             =",
 		"=                                                     =",
+		"=   $                         $                       =",
 		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=           $$$$                                      =",
+		"=                                       $             =",
+		"=                                       $             =",
+		"=           $$$$                     $$$$             =",
 		"=           $   $                                     =",
 		"=           $    $                                    =",
 		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
-		"=                                                     =",
+		"=                                   $               $ =",
+		"=       $                          $ $                =",
+		"=       $                         $   $               =",
+		"=                                $                    =",
+		"=                                $                    =",
 		"======================================================="
 	], {
 		tileWidth: 64,
@@ -966,39 +969,35 @@ scene('battleground', async () => {
 		// }
 		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
 	})
-	// onCollide("bullet", "shelter", (element1, element2) => {
-	// 	let shelterK, bulletK;
-	// 	for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
-	// 		const shelter = clientWorldState.shelters[shelterId];
-	// 		if (shelter.gameObj === element1) {
-	// 			shelterK = shelter
-	// 			break;
-	// 		}
-	// 		if (shelter.gameObj === element2) {
-	// 			shelterK = shelter
-	// 			break;
-	// 		}
-	// 	}
-	// 	for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
-	// 		const bullet = clientWorldState.bullets[bulletId];
-	// 		if (bullet.gameObj === element1) {
-	// 			bulletK = bullet
-	// 			break;
-	// 		}
-	// 		if (bullet.gameObj === element2) {
-	// 			bulletK = bullet
-	// 			break;
-	// 		}
-	// 	}
-	// 	if (bulletK) {
-	// 		bulletK.gameObj.use(sprite('hidden'));
-	// 	}
-	// 	if (!shelterK || !bulletK) {
-	// 		console.error('onCollide sheler-bullet error - entity not found', shelterK, bulletK);
-	// 		return;
-	// 	}
-	// 	sendEvent(EVENTS.COLLIDE, { shelterId: shelterK.id, bulletId: bulletK.id })
-	// })
+	onCollide("bullet", "shelter", (element1, element2) => {
+		let shelterK, bulletK;
+		for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
+			const shelter = clientWorldState.shelters[shelterId];
+			if (shelter.gameObj === element1) {
+				shelterK = shelter
+				break;
+			}
+			if (shelter.gameObj === element2) {
+				shelterK = shelter
+				break;
+			}
+		}
+		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+			const bullet = clientWorldState.bullets[bulletId];
+			if (bullet.gameObj === element1) {
+				bulletK = bullet
+				break;
+			}
+			if (bullet.gameObj === element2) {
+				bulletK = bullet
+				break;
+			}
+		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
+		sendEvent(EVENTS.COLLIDE, { shelterId: 'shelterK.id', bulletId: bulletK.id })
+	})
 
 	onKeyDown("a", () => player.move(-SPEED, 0))
 	onKeyDown("d", () => player.move(+SPEED, 0))
