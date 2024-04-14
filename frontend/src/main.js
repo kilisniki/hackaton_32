@@ -484,7 +484,7 @@ const EVENTS = {
 	BATTLLEND: 'BATTLLEND'
 }
 let connected;
-const CLIENT_SCOKET = new WebSocket('ws://deathmatch-ws-production.up.railway.app'); // ws://localhost:8080/
+const CLIENT_SCOKET = new WebSocket('wss://deathmatch-ws-production.up.railway.app'); // ws://localhost:8080/
 CLIENT_SCOKET.onopen = (event) => {
 	connected = event;
 	console.log('connected successful');
