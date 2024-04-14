@@ -9,6 +9,11 @@ setBackground([212, 110, 179])
 const SPEED = 480;
 const MOVEMENT_DURATION = 0.3;
 const SEND_MY_STATE_EVERY = 100;
+const ROOMS = {
+	leaderBoard: 'leaderBoard',
+	battleGround: 'battleGround'
+};
+let currentRoom;
 let leaderBoard;
 let currentWorldState;
 let shotCooldown = 1_000; // 3 секунды
@@ -16,16 +21,20 @@ let lastShot = 0;
 const globalPlayer = {
 	id: null,
 	nickname: null,
-	level: 1,
-	damage: 1,
-	bulletSpeed: 1,
-	health: 10,
-	maxHealth: 10,
-	levelScore: 0,
-	texture: 'bullet',
 	gameObj: null,
 	serverState: null
 };
+function setDefaultValues () {
+	globalPlayer.level = 1;
+	globalPlayer.damage = 1;
+	globalPlayer.bulletSpeed = 1;
+	globalPlayer.health = 10;
+	globalPlayer.maxHealth = 10;
+	globalPlayer.levelScore = 0;
+	globalPlayer.texture = 'texture_1';
+}
+setDefaultValues();
+
 const clientWorldState = {
 	player: globalPlayer,
 	players: {},
@@ -37,7 +46,8 @@ const clientWorldState = {
 
 // Load assets
 loadSprite("bean", "/sprites/bean.png")
-loadSprite("texture_1", "/sprites/bean.png")
+loadSprite("texture_1", "/sprites/texture_1.png")
+loadSprite("texture_2", "/sprites/texture_2.png")
 
 loadSprite("coin", "/sprites/coin.png")
 loadSprite("grass", "/sprites/grass.png")
@@ -45,7 +55,8 @@ loadSprite("shelter", "/sprites/shelter.png")
 loadSprite("lb-desk", "/sprites/lb-desk.png")
 loadSprite("portal", "/sprites/portal.png")
 loadSprite("bullet", "/sprites/bullet.png")
-
+loadSprite("rip", "/sprites/rip.png")
+loadSprite("hidden", "/sprites/hidden.png")
 
 
 loadSound("score", "/examples/sounds/score.mp3")
@@ -63,7 +74,8 @@ let storage = {
 }
 const myStorage = storage // || localStorage; TODO при выкатке не забыть поменять
 
-// UTILS START
+// UTILS START ------------------------------------------------------------------------------------>
+
 // создание загрузка пользователя
 function createUser(nickname) {
 	const user = { id: uuidv4(), nickname };
@@ -74,11 +86,10 @@ function getUser() {
 	if (user) {
 		try {
 			user = JSON.parse(user);
-			console.log('user setted!');
 			clientWorldState.player.id = user.id;
 			clientWorldState.player.nickname = user.nickname;
 		} catch (e) {
-			console.log('user broken', e);
+			console.error('user broken', e);
 			user = undefined;
 		}
 	}
@@ -129,34 +140,29 @@ function vectorToAngle(x, y) {
 }
 
 function createOtherPlayerObj (level, state) {
-	const player = level.add([
+	return level.add([
 		pos(state.x, state.y),
 		anchor("center"),
+		area(),
 		sprite(state.texture),
 		"otherPlayer",
 		state.id
 	]);
-	// player.onCollide("bullet", (element) => {
-	// 	console.log(127, element);
-	// 	sendEvent(EVENTS.COLLIDE, { playerId: state.id, bulletId: element.id })
-	// })
-	return player;
 }
 
 function createBulletObj (level, state) {
-	console.log(state.direction.x, state.direction.y);
 	let angle = vectorToAngle(state.direction.x, state.direction.y) - 90;
 
-	console.log('angle',angle)
 	const gameObj = level.add([
 		pos(state.coordinates.x, state.coordinates.y),
 		anchor("center"),
 		sprite('bullet'),
+		area(),
 		rotate(angle),
 		"bullet",
 		state.id
 	])
-	// gameObj.angle = angle;
+	// TODO вынести на сервер, а сюда добавить twittle
 	const resultX = gameObj.pos.x + state.direction.x * 100 * 100;
 	const resultY = gameObj.pos.y + state.direction.y * 100 * 100;
 	gameObj.tween = tween(
@@ -165,84 +171,163 @@ function createBulletObj (level, state) {
 		100, // здесь должна быть функция от пинга
 		(val) => {
 			gameObj.pos = val;
-			// unit.engineData.gameObj.pos = val
 		}
 	)
 	return gameObj;
 }
 
 function createPlayerObj (level) {
+	const rand = {
+		x: Math.random() * 1800 + 64,
+		y: Math.random() * 1920 + 64
+	}
 	const gameObj = level.add([
-		sprite("bean"),
+		sprite(globalPlayer.texture),
 		area(),
 		body(),
 		anchor("center"),
-		pos(1000, 1000),
+		pos(rand.x, rand.y),
 		"player",
 	]);
 	globalPlayer.gameObj = gameObj;
 	return gameObj;
 }
 
+// эта функция проходится по основным сущностям и удаляет их с игрового поля
+// у всех сущностей должен быть id и {id gameObj} в состоянии на клиенте
 function deleteOldUnits (newState) {
-	const field = 'players';
-	// TODO bullets, shelters
-	const newPlayers = newState
-		.players
-		.reduce(
-			(acc, el) =>
-			{
-				console.log('acc', acc);
-				acc[el.id] = el;
-				return acc
-			},
-			{});
-	for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
-		const playerOnServer = newPlayers[playerId]; // достаем player
-		if (!playerOnServer) {
-			// не нашли в новом состоянии юнит, удаляем объект
-			destroy(clientWorldState[playerId].gameObj);
-			delete clientWorldState[playerId];
+	const fields = ['players',  'gains', 'shelters']; // 'bullets' TODO добавить
+	for (const field of fields) {
+		const newPlayers = newState.players.reduce((acc, el) => { acc[el.id] = el; return acc }, {});
+		for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
+			const playerOnServer = newPlayers[playerId]; // достаем player
+			if (!playerOnServer) {
+				destroy(clientWorldState[field][playerId].gameObj);
+				delete clientWorldState[field][playerId];
+			}
 		}
 	}
 }
 
 function createOrUpdateUnits (level, newState) {
-	//const field = 'players';
-	// TODO bullets, shelters
-	const newPlayers = newState.players.reduce((acc, el)=>{ acc[el.id] = el; return acc; }, {});
-	for (const playerId in newPlayers) { // проходимся по всем игрокам с сервера
-		const playerOnServer = newPlayers[playerId]; // достаем player
-		if(playerId === globalPlayer.id) {
-			globalPlayer.health = playerOnServer.health;
-			globalPlayer.levelScore = playerOnServer.levelScore;
-			globalPlayer.serverState = playerOnServer;
-			// TODO обработка смерти
-		}
-		const exitedUnit = clientWorldState.players[playerId];
-		if (exitedUnit) {
+	const fields = ['players', 'bullets', 'gains', 'shelters'];
+	for (const field of fields) {
+		const existedUnits = newState[field].reduce((acc, el)=>{ acc[el.id] = el; return acc; }, {});
+		for (const playerId in existedUnits) { // проходимся по всем сущностям с сервера
+			const unitOnServer = existedUnits[playerId]; // достаем сущность
+			if(playerId === globalPlayer.id) {
+				globalPlayer.health = unitOnServer.health;
+				globalPlayer.levelScore = unitOnServer.levelScore;
+				globalPlayer.serverState = unitOnServer;
+				// globalPlayer.health = 0;
+				if (globalPlayer.health === 0) {
+					globalPlayer.gameObj.use(sprite('rip'));
+					stopSendState();
+					clearEventHandlers(EVENTS.PLAYERSTATE);
+					clearEventHandlers(EVENTS.WORLDSTATE);
+					clearEventHandlers(EVENTS.LEADERBOARD);
+					go('lose');
+					// TODO обработка смерти
+				}
+				return;
+			}
+			let exitedUnit = clientWorldState[field][playerId];
+			if (!exitedUnit) {
+				// есть на сервере, нет у нас - добавляем
+				let newGameObj;
+				switch (field) {
+					case 'players':
+						newGameObj = createOtherPlayerObj(level, unitOnServer);
+						break;
+					case 'bullets':
+						newGameObj = createBulletObj(level, unitOnServer);
+						break;
+					case 'gains':
+						break;
+					case 'shelters':
+						break;
+					default:
+						break;
+				}
+				exitedUnit = {
+					id: unitOnServer.id,
+					gameObj: newGameObj,
+					serverState: unitOnServer
+				};
+				clientWorldState[field][unitOnServer.id] = exitedUnit;
+			}
+			// update animation
 			if (exitedUnit.gameObj.tween) {
 				exitedUnit.gameObj.tween.cancel()
 			}
+			if (exitedUnit.health === 0) { // поле есть только у players
+				exitedUnit.gameObj.use(sprite('rip'));
+			}
 			exitedUnit.gameObj.tween = tween(
 				vec2(exitedUnit.gameObj.pos.x, exitedUnit.gameObj.pos.y),
-				vec2(playerOnServer.x, playerOnServer.y),
+				vec2(unitOnServer.x, unitOnServer.y),
 				MOVEMENT_DURATION,
 				(val) => exitedUnit.gameObj.pos = val
 			)
-			// TODO смерть, смена текстуры
-		} else {
-			const newPlayerUnit = createOtherPlayerObj(level, playerOnServer);
-			clientWorldState.players[playerOnServer.id] = {
-				id: playerOnServer.id,
-				gameObj: newPlayerUnit
-			};
+			// update textures
+			switch (field) {
+				case 'players':
+					if (exitedUnit.serverState.health > 0) exitedUnit.gameObj.use(sprite(exitedUnit.serverState.texture));
+					else exitedUnit.gameObj.use(sprite('rip'));
+					break;
+				case 'bullets':
+				case 'gains':
+				case 'shelters':
+				default:
+					break;
+			}
 		}
 	}
 }
 
+function addButton(txt, p, f) {
+	// add a parent background object
+	const btn = add([
+		rect(300, 80, { radius: 8 }),
+		pos(p),
+		area(),
+		scale(1),
+		anchor("center"),
+		outline(4),
+	])
 
-// UTILS END
+	// add a child object that displays the text
+	const btnTxt = btn.add([
+		text(txt),
+		anchor("center"),
+		color(0, 0, 0),
+	])
+
+	// onHoverUpdate() comes from area() component
+	// it runs every frame when the object is being hovered
+	btn.onHoverUpdate(() => {
+		const t = time() * 10
+		btn.color = hsl2rgb((t / 10) % 1, 0.6, 0.7)
+		btn.scale = vec2(1.2)
+		setCursor("pointer")
+	})
+
+	// onHoverEnd() comes from area() component
+	// it runs once when the object stopped being hovered
+	btn.onHoverEnd(() => {
+		btn.scale = vec2(1)
+		btn.color = rgb()
+	})
+
+	// onClick() comes from area() component
+	// it runs once when the object is clicked
+	btn.onClick(f)
+
+	return {btn, btnTxt }
+}
+
+
+// UTILS END ------------------------------------------------------------------------------------>
 
 // СОКЕТЫ START ----------------------------------------------------------------------------------
 const EVENTS = {
@@ -251,7 +336,9 @@ const EVENTS = {
 	WORLDSTATE: 'WORLDSTATE',
 	PLAYERSTATE: 'PLAYERSTATE',
 	SHOT: 'SHOT',
-	COLLIDE: 'COLLIDE'
+	COLLIDE: 'COLLIDE',
+	PING: 'PING',
+	BATTLLEND: 'BATTLLEND'
 }
 let connected;
 const CLIENT_SCOKET = new WebSocket('ws://deathmatch-ws-production.up.railway.app'); // ws://localhost:8080/
@@ -285,22 +372,27 @@ function removeEventHandler(eventType, handler) {
 		}
 	}
 }
+function clearEventHandlers(eventType) {
+	eventHandlers[eventType] = []
+}
+
 CLIENT_SCOKET.onmessage = (event) => {
-	console.log(event.data);
 	const eventData = JSON.parse(event.data);
+	console.log(eventData);
 	const eventType = eventData.event;
 	const eventPayload = eventData.data;
 
 	if (eventHandlers[eventType]) {
 		eventHandlers[eventType].forEach(handler => handler(eventPayload));
 	} else {
-		console.log('No handlers for:', eventType);
+		console.error('No handlers for:', eventType);
 	}
 }
 
+addEventHandler(undefined, ()=>{console.log('pong')});
+
 function subscribeToLeaderBoard (lbTextGameObject) {
 	addEventHandler(EVENTS.LEADERBOARD, (payload) => {
-		console.log('leaderboard')
 		leaderBoard = payload;
 		lbTextGameObject.text = getLbText();
 	});
@@ -322,7 +414,6 @@ function subscribeToWorldState (level, player) {
 		* 10. Создание, обновление улучшений
 		*
 		* */
-		console.log('world state received');
 		deleteOldUnits(payload);
 		createOrUpdateUnits(level, payload);
 		globalPlayer.levelScore = 1;
@@ -345,7 +436,7 @@ function startSendState () {
 			level: globalPlayer.level,
 			health: globalPlayer.health,
 			maxHealth: globalPlayer.maxHealth,
-			texture: 'texture_1',
+			texture: globalPlayer.texture,
 			x: globalPlayer.gameObj.pos.x,
 			y: globalPlayer.gameObj.pos.y
 		});
@@ -354,6 +445,15 @@ function startSendState () {
 function stopSendState () {
 	clearInterval(interval);
 }
+
+addEventHandler(EVENTS.BATTLLEND, () => {
+	if (currentRoom !== ROOMS.battleGround) {
+		return;
+	}
+	stopSendState();
+	clearEventHandlers()
+	go('leaderboard')
+});
 
 // РАЗРЫВ DISCONNECT
 // TODO
@@ -370,19 +470,6 @@ CLIENT_SCOKET.onclose = function(event) {
 	}
 };
 // СОКЕТЫ END ----------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -457,7 +544,8 @@ scene('welcome', async ({ levelIdx, score}) => {
 // LEADERBOARD SCENE START --------------------------------------------------------------
 scene('leaderboard', async () => {
 	const user = getUser();
-	sendEvent(EVENTS.REGISTER, user);
+	currentRoom = ROOMS.leaderBoard;
+	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
 
 	camScale(1);
 	const level = addLevel([
@@ -595,20 +683,93 @@ scene('leaderboard', async () => {
 		sendEvent(EVENTS.SHOT, bulletState);
 		const gameObj = createBulletObj(level, bulletState);
 		clientWorldState.bullets[bulletState.id] = {
+			id: bulletState.id,
 			gameObj: gameObj,
 			serverState: bulletState
 		};
 	})
 
+  // обработка коллизий
 	player.onCollide("portal", () => {
 		stopSendState();
-		go("battleground", {});
+		clearEventHandlers();
+		go("lose", {});
+	})
+	onCollide("bullet", "otherPlayer", (element1, element2) => {
+		let playerK, bulletK;
+		for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
+			const player = clientWorldState.players[playerId];
+			if (player.gameObj === element1) {
+				playerK = player
+				break;
+			}
+			if (player.gameObj === element2) {
+				playerK = player
+				break;
+			}
+		}
+		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+			const bullet = clientWorldState.bullets[bulletId];
+			if (bullet.gameObj === element1) {
+				bulletK = bullet
+				break;
+			}
+			if (bullet.gameObj === element2) {
+				bulletK = bullet
+				break;
+			}
+		}
+		if (!playerK || !bulletK) {
+			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
+			return;
+		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
+		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
+	})
+	onCollide("bullet", "shelter", (element1, element2) => {
+		let shelterK, bulletK;
+		for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
+			const shelter = clientWorldState.shelters[shelterId];
+			if (shelter.gameObj === element1) {
+				shelterK = shelter
+				break;
+			}
+			if (shelter.gameObj === element2) {
+				shelterK = shelter
+				break;
+			}
+		}
+		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+			const bullet = clientWorldState.bullets[bulletId];
+			if (bullet.gameObj === element1) {
+				bulletK = bullet
+				break;
+			}
+			if (bullet.gameObj === element2) {
+				bulletK = bullet
+				break;
+			}
+		}
+		if (!shelterK || !bulletK) {
+			console.error('onCollide sheler-bullet error - entity not found', shelterK, bulletK);
+			return;
+		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
+		sendEvent(EVENTS.COLLIDE, { shelterId: shelterK.id, bulletId: bulletK.id })
 	})
 
 	onKeyDown("a", () => player.move(-SPEED, 0))
 	onKeyDown("d", () => player.move(+SPEED, 0))
 	onKeyDown("w", () => player.move(0, -SPEED))
 	onKeyDown("s", () => player.move(0, +SPEED))
+	onKeyDown("ф", () => player.move(-SPEED, 0))
+	onKeyDown("в", () => player.move(+SPEED, 0))
+	onKeyDown("ц", () => player.move(0, -SPEED))
+	onKeyDown("ы", () => player.move(0, +SPEED))
 })
 // LEADERBOARD SCENE END ----------------------------------------------------------------------
 
@@ -620,6 +781,47 @@ scene('battleground', async () => {
 	startSendState();
 })
 // BATTLEGROUND SCENE END -------------------------------------------------------------------
+
+
+// LOSE SCENE ------------------------------------------------------------------------------->
+scene("lose", (score) => {
+	const startedAt = Date.now();
+
+	add([
+		sprite(globalPlayer.texture),
+		pos(width() / 2, height() / 2 - 108),
+		scale(3),
+		anchor("center"),
+	])
+
+	// display score
+	add([
+		text(`Your score - ${globalPlayer.levelScore}`, { letterSpacing: 1 }),
+		pos(width() / 2, height() / 2 + 108),
+		scale(3),
+		anchor("center"),
+	])
+
+	const WAIT_TIME = 5_000
+	addButton("Leaderboard",
+		vec2(width() / 2, height() / 2 + 208),
+		() => {
+		go('leaderboard');
+	})
+	const battleButton = addButton("To Battle!", vec2(width() / 2, height() / 2 + 308), () => {
+		const seconds = Math.ceil((WAIT_TIME - (Date.now() - startedAt)) / 1000);
+		if (seconds > 0) return;
+		go('battleground');
+	});
+	battleButton.btnTxt.onUpdate(() => {
+		const seconds = Math.ceil((WAIT_TIME - (Date.now() - startedAt)) / 1000);
+		const text = seconds > 0 ? seconds : '';
+		battleButton.btnTxt.text = `To Battle! ${text}`
+	})
+
+})
+// LOSE SCENE -------------------------------------------------------------------------------<
+
 
 // WAIT CONNECT
 scene('waitconnect', async () => {
