@@ -289,7 +289,7 @@ function createOrUpdateUnits (level, newState) {
 				globalPlayer.texture = getUpdateTexture(globalPlayer.level);
 				globalPlayer.damage = getUpdateDamage(globalPlayer.level);
 				// globalPlayer.health = 0; для теста
-				if (globalPlayer.health === 0) {
+				if (globalPlayer.health <= 0) {
 					globalPlayer.gameObj.use(sprite('rip'));
 					stopSendState();
 					clearEventHandlers(EVENTS.PLAYERSTATE);
