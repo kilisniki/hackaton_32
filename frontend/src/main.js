@@ -350,7 +350,7 @@ function createOrUpdateUnits (level, newState) {
 			// update textures
 			switch (field) {
 				case 'players':
-					if (unitOnClient.serverStatesd.health !== unitOnServer.health) unitOnClient.gameObj.setHP(unitOnClient.serverState.health);
+					if (unitOnClient.serverState.health !== unitOnServer.health) unitOnClient.gameObj.setHP(unitOnClient.serverState.health);
 					if (unitOnClient.serverState.health > 0) unitOnClient.gameObj.use(sprite(unitOnClient.serverState.texture));
 					else unitOnClient.gameObj.use(sprite('rip'));
 					unitOnClient.serverState = unitOnServer
