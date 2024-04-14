@@ -302,7 +302,6 @@ function createOrUpdateUnits (level, newState) {
 			}
 			let unitOnClient = clientWorldState[field][playerId];
 			if (!unitOnClient) {
-				console.log('CREATION');
 				// есть на сервере, нет у нас - добавляем
 				let newGameObj;
 				switch (field) {
@@ -351,8 +350,10 @@ function createOrUpdateUnits (level, newState) {
 			// update textures
 			switch (field) {
 				case 'players':
+					if (unitOnClient.serverStatesd.health !== unitOnServer.health) unitOnClient.gameObj.setHP(unitOnClient.serverState.health);
 					if (unitOnClient.serverState.health > 0) unitOnClient.gameObj.use(sprite(unitOnClient.serverState.texture));
 					else unitOnClient.gameObj.use(sprite('rip'));
+					unitOnClient.serverState = unitOnServer
 					break;
 				case 'bullets':
 				case 'gains':
@@ -949,6 +950,10 @@ scene('battleground', async () => {
 		}
 		if (!playerK || !bulletK) {
 			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
+			return;
+		}
+		if(playerK && playerK.health <= 0) {
+			// игнорируем
 			return;
 		}
 		if (bulletK.serverState.playerId === playerK.id) {
