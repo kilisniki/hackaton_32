@@ -2,6 +2,7 @@ import kaboom from "kaboom";
 import {v4 as uuidv4} from 'uuid';
 import Victor from 'victor';
 
+
 // Start game
 kaboom()
 // setBackground([212, 110, 179])
@@ -9,7 +10,7 @@ setBackground([0, 0, 0])
 
 // ОБЩИЕ переменные
 const SPEED = 480;
-const MOVEMENT_DURATION = 0.3;
+const MOVEMENT_DURATION = 0.15;
 const SEND_MY_STATE_EVERY = 100;
 const ROOMS = {
 	leaderBoard: 'leaderBoard',
@@ -30,7 +31,7 @@ const MAX_HEALTH = 10;
 function setDefaultValues () {
 	globalPlayer.level = 1;
 	globalPlayer.damage = 1;
-	globalPlayer.bulletSpeed = 500;
+	globalPlayer.bulletSpeed = 750;
 	globalPlayer.health = 10;
 	globalPlayer.maxHealth = MAX_HEALTH;
 	globalPlayer.levelScore = 0;
@@ -48,27 +49,27 @@ const clientWorldState = {
 
 
 // Load assets
-loadSprite("bean", "/sprites/bean.png")
-loadSprite("texture_1", "/sprites/texture_1.png")
-loadSprite("texture_2", "/sprites/texture_2.png")
-loadSprite("texture_3", "/sprites/texture_2.png")
-loadSprite("texture_4", "/sprites/texture_2.png")
-loadSprite("texture_5", "/sprites/texture_2.png")
-loadSprite("coin", "/sprites/coin.png")
-loadSprite("grass", "/sprites/grass.png")
-loadSprite("shelter", "/sprites/shelter.png")
-loadSprite("lb-desk", "/sprites/lb-desk.png")
-loadSprite("portal", "/sprites/portal.png")
-loadSprite("bullet", "/sprites/bullet.png")
-loadSprite("rip", "/sprites/rip.png")
-loadSprite("hidden", "/sprites/hidden.png")
-loadSprite("logo", "/sprites/logo.png")
+loadSprite("bean", "./sprites/bean.png")
+loadSprite("texture_1", "./sprites/texture_1.png")
+loadSprite("texture_2", "./sprites/texture_2.png")
+loadSprite("texture_3", "./sprites/texture_3.png")
+loadSprite("texture_4", "./sprites/texture_4.png")
+loadSprite("texture_5", "./sprites/texture_5.png")
+loadSprite("coin", "./sprites/coin.png")
+loadSprite("grass", "./sprites/grass.png")
+loadSprite("shelter", "./sprites/shelter.png")
+loadSprite("lb-desk", "./sprites/lb-desk.png")
+loadSprite("portal", "./sprites/portal.png")
+loadSprite("bullet", "./sprites/bullet.png")
+loadSprite("rip", "./sprites/rip.png")
+loadSprite("hidden", "./sprites/hidden.png")
+loadSprite("logo", "./sprites/logo.png")
 
 
 
-loadSound("score", "/examples/sounds/score.mp3")
+loadSound("score", "./examples/sounds/score.mp3")
 const FONT = "apl386"
-loadFont(FONT, "/examples/fonts/apl386.ttf", { outline: 4, filter: "linear" })
+loadFont(FONT, "./examples/fonts/apl386.ttf", { outline: 4, filter: "linear" })
 
 let a = {};
 let storage = {
@@ -120,6 +121,7 @@ const getLbText = () => {
 
 	const currLeaderBoard = leaderBoard || leaderBoardMock;
 	let lbText = "";
+	lbText += `Place - Nickname - Score\n`
 	currLeaderBoard.sort((a,b) => b.score - a.score);
 	let playerScore;
 	let playerIndex;

