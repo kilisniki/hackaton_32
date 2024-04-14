@@ -227,7 +227,6 @@ function createOrUpdateUnits (level, newState) {
 					clearEventHandlers(EVENTS.WORLDSTATE);
 					clearEventHandlers(EVENTS.LEADERBOARD);
 					go('lose');
-					// TODO обработка смерти
 				}
 				return;
 			}
@@ -406,7 +405,7 @@ function subscribeToWorldState (level, player) {
 		* 2. Удалить из clientWorldState удаленные
 		* 3. Удалить из level удаленные
 		* 4. Остальные - обновить / создать
-		* 5. Создание игроков, буллетсов - добавляем эвенты onCollision()
+		* 5. Создание игроков, буллетсов ...
 		* 6. Обновляется игроков: у тех у кого health = 0 - ставим texture = death
 		* 7. Обновление буллетс - анимация
 		* 8. Если у нас health = 0 - завершаем игру, переводим на новый экран
@@ -416,10 +415,6 @@ function subscribeToWorldState (level, player) {
 		* */
 		deleteOldUnits(payload);
 		createOrUpdateUnits(level, payload);
-		globalPlayer.levelScore = 1;
-		globalPlayer.health = 1;
-		// TODO
-
 		currentWorldState = payload;
 	});
 }
@@ -482,7 +477,7 @@ scene('welcome', async ({ levelIdx, score}) => {
 	const pad = 24
 
 	const welcomeMessage = add([
-		text('Введи свой никнейм, дракон!', {
+		text('Enter your nickname, Dragon!', {
 			font: FONT,
 			color: [0 , 0, 0],
 		}),
@@ -573,7 +568,7 @@ scene('leaderboard', async () => {
 		"=                             =",
 		"=                             =",
 		"=                             =",
-		"=                 $           =",
+		"=                             =",
 		"=                             =",
 		"=                             =",
 		"=                             =",
@@ -597,13 +592,7 @@ scene('leaderboard', async () => {
 				area(),
 				body({ isStatic: true }),
 				anchor("center"),
-			],
-			"$": () => [
-				sprite("shelter"),
-				area(),
-				anchor("center"),
-				"shelter",
-			],
+			]
 		},
 	});
 
@@ -644,6 +633,99 @@ scene('leaderboard', async () => {
 	})
 	player.onPhysicsResolve(() => {
 		// Set the viewport center to player.pos
+		camPos(player.worldPos())
+	})
+
+  // обработка коллизий
+	player.onCollide("portal", () => {
+		stopSendState();
+		clearEventHandlers();
+		go("battleground", {});
+	})
+
+	onKeyDown("a", () => player.move(-SPEED, 0))
+	onKeyDown("d", () => player.move(+SPEED, 0))
+	onKeyDown("w", () => player.move(0, -SPEED))
+	onKeyDown("s", () => player.move(0, +SPEED))
+	onKeyDown("ф", () => player.move(-SPEED, 0))
+	onKeyDown("в", () => player.move(+SPEED, 0))
+	onKeyDown("ц", () => player.move(0, -SPEED))
+	onKeyDown("ы", () => player.move(0, +SPEED))
+})
+// LEADERBOARD SCENE END ----------------------------------------------------------------------
+
+
+// BATTLEGROUND SCENE START -------------------------------------------------------------------
+scene('battleground', async () => {
+	const user = getUser();
+	currentRoom = ROOMS.leaderBoard;
+	sendEvent(EVENTS.REGISTER, { ...user, room: currentRoom });
+	camScale(1); // спорно
+
+	const level = addLevel([
+		"=======================================================",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=           $$$$                                      =",
+		"=           $   $                                     =",
+		"=           $    $                                    =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"=                                                     =",
+		"======================================================="
+	], {
+		tileWidth: 64,
+		tileHeight: 64,
+		pos: vec2(32, 32),
+		tiles: {
+			"=": () => [
+				sprite("grass"),
+				area(),
+				body({ isStatic: true }),
+				anchor("center"),
+			],
+			"$": () => [
+				sprite("shelter"),
+				area(),
+				body({ isStatic: true }),
+				anchor("center"),
+				"shelter",
+			],
+		},
+	});
+
+	let player = createPlayerObj(level);
+
+	// подписываемся на все события
+	subscribeToWorldState(level);
+	startSendState();
+
+	player.onUpdate(() => {
+		camPos(player.worldPos())
+	})
+	player.onPhysicsResolve(() => {
 		camPos(player.worldPos())
 	})
 
@@ -689,12 +771,6 @@ scene('leaderboard', async () => {
 		};
 	})
 
-  // обработка коллизий
-	player.onCollide("portal", () => {
-		stopSendState();
-		clearEventHandlers();
-		go("lose", {});
-	})
 	onCollide("bullet", "otherPlayer", (element1, element2) => {
 		let playerK, bulletK;
 		for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
@@ -719,12 +795,12 @@ scene('leaderboard', async () => {
 				break;
 			}
 		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
 		if (!playerK || !bulletK) {
 			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
 			return;
-		}
-		if (bulletK) {
-			bulletK.gameObj.use(sprite('hidden'));
 		}
 		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
 	})
@@ -752,12 +828,12 @@ scene('leaderboard', async () => {
 				break;
 			}
 		}
+		if (bulletK) {
+			bulletK.gameObj.use(sprite('hidden'));
+		}
 		if (!shelterK || !bulletK) {
 			console.error('onCollide sheler-bullet error - entity not found', shelterK, bulletK);
 			return;
-		}
-		if (bulletK) {
-			bulletK.gameObj.use(sprite('hidden'));
 		}
 		sendEvent(EVENTS.COLLIDE, { shelterId: shelterK.id, bulletId: bulletK.id })
 	})
@@ -770,15 +846,6 @@ scene('leaderboard', async () => {
 	onKeyDown("в", () => player.move(+SPEED, 0))
 	onKeyDown("ц", () => player.move(0, -SPEED))
 	onKeyDown("ы", () => player.move(0, +SPEED))
-})
-// LEADERBOARD SCENE END ----------------------------------------------------------------------
-
-
-// BATTLEGROUND SCENE START -------------------------------------------------------------------
-scene('battleground', async () => {
-
-	//
-	startSendState();
 })
 // BATTLEGROUND SCENE END -------------------------------------------------------------------
 
