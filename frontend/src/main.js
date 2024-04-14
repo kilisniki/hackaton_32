@@ -283,6 +283,7 @@ function createOrUpdateUnits (level, newState) {
 			const unitOnServer = existedUnits[playerId]; // достаем сущность
 			if(playerId === globalPlayer.id) {
 				globalPlayer.serverState = unitOnServer;
+				if (unitOnServer.health !== globalPlayer.serverState.health) globalPlayer.gameObj.setHP(globalPlayer.serverState.health)
 				globalPlayer.health = unitOnServer.health;
 				globalPlayer.levelScore = 0 || unitOnServer.levelScore;
 				globalPlayer.level = getUpdateLevel(globalPlayer.levelScore);
