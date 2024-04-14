@@ -202,6 +202,10 @@ function createBulletObj (level, state) {
 		"bullet",
 		state.id
 	])
+	return gameObj;
+}
+
+function updateBulletObj () {
 	// TODO вынести на сервер, а сюда добавить twittle
 	const resultX = gameObj.pos.x + state.direction.x * 100 * 100;
 	const resultY = gameObj.pos.y + state.direction.y * 100 * 100;
@@ -213,7 +217,6 @@ function createBulletObj (level, state) {
 			gameObj.pos = val;
 		}
 	)
-	return gameObj;
 }
 
 function createPlayerObj (level) {
@@ -245,7 +248,7 @@ function createPlayerObj (level) {
 // эта функция проходится по основным сущностям и удаляет их с игрового поля
 // у всех сущностей должен быть id и {id gameObj} в состоянии на клиенте
 function deleteOldUnits (newState) {
-	const fields = ['players',  'gains', 'shelters']; // 'bullets' TODO добавить
+	const fields = ['players', 'bullets',  'gains', 'shelters'];
 	for (const field of fields) {
 		const newPlayers = newState.players.reduce((acc, el) => { acc[el.id] = el; return acc }, {});
 		for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
@@ -267,7 +270,7 @@ function createOrUpdateUnits (level, newState) {
 			if(playerId === globalPlayer.id) {
 				globalPlayer.serverState = unitOnServer;
 				globalPlayer.health = unitOnServer.health;
-				globalPlayer.levelScore = unitOnServer.levelScore;
+				globalPlayer.levelScore = 0 || unitOnServer.levelScore;
 				globalPlayer.level = getUpdateLevel(globalPlayer.levelScore);
 				globalPlayer.texture = getUpdateTexture(globalPlayer.level);
 				globalPlayer.damage = getUpdateDamage(globalPlayer.level);
@@ -390,6 +393,7 @@ function getUpdateLevel (score) {
 	if (score >= 5) {
 		return 2;
 	}
+	return 1;
 }
 
 function getUpdateTexture (level) {
