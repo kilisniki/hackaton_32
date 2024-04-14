@@ -27,7 +27,7 @@ const globalPlayer = {
 function setDefaultValues () {
 	globalPlayer.level = 1;
 	globalPlayer.damage = 1;
-	globalPlayer.bulletSpeed = 1;
+	globalPlayer.bulletSpeed = 500;
 	globalPlayer.health = 10;
 	globalPlayer.maxHealth = 10;
 	globalPlayer.levelScore = 0;
@@ -142,6 +142,7 @@ function vectorToAngle(x, y) {
 }
 
 function createOtherPlayerObj (level, state) {
+	console.log('create user!!!');
 	const player = level.add([
 		pos(state.x, state.y),
 		anchor("center"),
@@ -193,7 +194,7 @@ function addHealthBar (player, maxHealth) {
 function createBulletObj (level, state) {
 	let angle = vectorToAngle(state.direction.x, state.direction.y) - 90;
 
-	const gameObj = level.add([
+	const bullet = level.add([
 		pos(state.coordinates.x, state.coordinates.y),
 		anchor("center"),
 		sprite('bullet'),
@@ -202,7 +203,8 @@ function createBulletObj (level, state) {
 		"bullet",
 		state.id
 	])
-	return gameObj;
+
+	return bullet
 }
 
 function updateBulletObj () {
@@ -248,22 +250,30 @@ function createPlayerObj (level) {
 // эта функция проходится по основным сущностям и удаляет их с игрового поля
 // у всех сущностей должен быть id и {id gameObj} в состоянии на клиенте
 function deleteOldUnits (newState) {
-	const fields = ['players', 'bullets',  'gains', 'shelters'];
+	const fields = ['players', 'bullets', 'gains', 'shelters'];
 	for (const field of fields) {
-		const newPlayers = newState.players.reduce((acc, el) => { acc[el.id] = el; return acc }, {});
-		for (const playerId in clientWorldState[field]) { // проходимся по всем текущим игрокам
-			const playerOnServer = newPlayers[playerId]; // достаем player
-			if (!playerOnServer) {
-				destroy(clientWorldState[field][playerId].gameObj);
-				delete clientWorldState[field][playerId];
+		const serverUnits = newState[field].reduce((acc, el) => { acc[el.id] = el; return acc }, {});
+		for (const unitId in clientWorldState[field]) { // проходимся по всем текущим сущностям
+			const unitStateOnServer = serverUnits[unitId]; // достаем сущность
+			if (!unitStateOnServer) {
+				destroy(clientWorldState[field][unitId].gameObj);
+				delete clientWorldState[field][unitId];
 			}
 		}
 	}
 }
 
+function clearWorld () {
+	deleteOldUnits({ players: [], bullets: [], gains: [], shelters: []});
+}
+
 function createOrUpdateUnits (level, newState) {
 	const fields = ['players', 'bullets', 'gains', 'shelters'];
+	console.log('create or update!!!')
 	for (const field of fields) {
+		if (field === 'bullets') {
+			console.log('BULLLETS!')
+		}
 		const existedUnits = newState[field].reduce((acc, el)=>{ acc[el.id] = el; return acc; }, {});
 		for (const playerId in existedUnits) { // проходимся по всем сущностям с сервера
 			const unitOnServer = existedUnits[playerId]; // достаем сущность
@@ -281,12 +291,14 @@ function createOrUpdateUnits (level, newState) {
 					clearEventHandlers(EVENTS.PLAYERSTATE);
 					clearEventHandlers(EVENTS.WORLDSTATE);
 					clearEventHandlers(EVENTS.LEADERBOARD);
+					clearWorld();
 					go('lose');
 				}
-				return;
+				continue;
 			}
-			let exitedUnit = clientWorldState[field][playerId];
-			if (!exitedUnit) {
+			let unitOnClient = clientWorldState[field][playerId];
+			if (!unitOnClient) {
+				console.log('CREATION');
 				// есть на сервере, нет у нас - добавляем
 				let newGameObj;
 				switch (field) {
@@ -303,31 +315,40 @@ function createOrUpdateUnits (level, newState) {
 					default:
 						break;
 				}
-				exitedUnit = {
+				unitOnClient = {
 					id: unitOnServer.id,
 					gameObj: newGameObj,
 					serverState: unitOnServer
 				};
-				clientWorldState[field][unitOnServer.id] = exitedUnit;
+				clientWorldState[field][unitOnServer.id] = unitOnClient;
 			}
 			// update animation
-			if (exitedUnit.gameObj.tween) {
-				exitedUnit.gameObj.tween.cancel()
+			if (unitOnClient.gameObj.tween) {
+				unitOnClient.gameObj.tween.cancel()
 			}
-			if (exitedUnit.health === 0) { // поле есть только у players
-				exitedUnit.gameObj.use(sprite('rip'));
+			if (unitOnClient.health === 0) { // поле есть только у players
+				unitOnClient.gameObj.use(sprite('rip'));
 			}
-			exitedUnit.gameObj.tween = tween(
-				vec2(exitedUnit.gameObj.pos.x, exitedUnit.gameObj.pos.y),
-				vec2(unitOnServer.x, unitOnServer.y),
-				MOVEMENT_DURATION,
-				(val) => exitedUnit.gameObj.pos = val
-			)
+			if (field === 'players') {
+				unitOnClient.gameObj.tween = tween(
+					vec2(unitOnClient.gameObj.pos.x, unitOnClient.gameObj.pos.y),
+					vec2(unitOnServer.x, unitOnServer.y),
+					MOVEMENT_DURATION,
+					(val) => unitOnClient.gameObj.pos = val
+				)
+			} else {
+				unitOnClient.gameObj.tween = tween(
+					vec2(unitOnClient.gameObj.pos.x, unitOnClient.gameObj.pos.y),
+					vec2(unitOnServer.coordinates.x, unitOnServer.coordinates.y),
+					MOVEMENT_DURATION,
+					(val) => unitOnClient.gameObj.pos = val
+				)
+			}
 			// update textures
 			switch (field) {
 				case 'players':
-					if (exitedUnit.serverState.health > 0) exitedUnit.gameObj.use(sprite(exitedUnit.serverState.texture));
-					else exitedUnit.gameObj.use(sprite('rip'));
+					if (unitOnClient.serverState.health > 0) unitOnClient.gameObj.use(sprite(unitOnClient.serverState.texture));
+					else unitOnClient.gameObj.use(sprite('rip'));
 					break;
 				case 'bullets':
 				case 'gains':
@@ -556,7 +577,10 @@ addEventHandler(EVENTS.BATTLLEND, () => {
 		return;
 	}
 	stopSendState();
-	clearEventHandlers()
+	clearEventHandlers(EVENTS.PLAYERSTATE);
+	clearEventHandlers(EVENTS.WORLDSTATE);
+	clearEventHandlers(EVENTS.LEADERBOARD);
+	clearWorld();
 	go('leaderboard')
 });
 
@@ -748,7 +772,10 @@ scene('leaderboard', async () => {
   // обработка коллизий
 	player.onCollide("portal", () => {
 		stopSendState();
-		clearEventHandlers();
+		clearEventHandlers(EVENTS.PLAYERSTATE);
+		clearEventHandlers(EVENTS.WORLDSTATE);
+		clearEventHandlers(EVENTS.LEADERBOARD);
+		clearWorld();
 		go("battleground", {});
 	})
 
@@ -872,47 +899,47 @@ scene('battleground', async () => {
 			createdAt: Date.now()
 		}
 		sendEvent(EVENTS.SHOT, bulletState);
-		const gameObj = createBulletObj(level, bulletState);
-		clientWorldState.bullets[bulletState.id] = {
-			id: bulletState.id,
-			gameObj: gameObj,
-			serverState: bulletState
-		};
+		// const gameObj = createBulletObj(level, bulletState);
+		// clientWorldState.bullets[bulletState.id] = {
+		// 	id: bulletState.id,
+		// 	gameObj: gameObj,
+		// 	serverState: bulletState
+		// };
 	})
 
-	onCollide("bullet", "otherPlayer", (element1, element2) => {
-		let playerK, bulletK;
-		for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
-			const player = clientWorldState.players[playerId];
-			if (player.gameObj === element1) {
-				playerK = player
-				break;
-			}
-			if (player.gameObj === element2) {
-				playerK = player
-				break;
-			}
-		}
-		for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
-			const bullet = clientWorldState.bullets[bulletId];
-			if (bullet.gameObj === element1) {
-				bulletK = bullet
-				break;
-			}
-			if (bullet.gameObj === element2) {
-				bulletK = bullet
-				break;
-			}
-		}
-		if (bulletK) {
-			bulletK.gameObj.use(sprite('hidden'));
-		}
-		if (!playerK || !bulletK) {
-			console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
-			return;
-		}
-		sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
-	})
+	// onCollide("bullet", "otherPlayer", (element1, element2) => {
+	// 	let playerK, bulletK;
+	// 	for (const playerId of Object.getOwnPropertyNames(clientWorldState.players)) {
+	// 		const player = clientWorldState.players[playerId];
+	// 		if (player.gameObj === element1) {
+	// 			playerK = player
+	// 			break;
+	// 		}
+	// 		if (player.gameObj === element2) {
+	// 			playerK = player
+	// 			break;
+	// 		}
+	// 	}
+	// 	for (const bulletId of Object.getOwnPropertyNames(clientWorldState.bullets)) {
+	// 		const bullet = clientWorldState.bullets[bulletId];
+	// 		if (bullet.gameObj === element1) {
+	// 			bulletK = bullet
+	// 			break;
+	// 		}
+	// 		if (bullet.gameObj === element2) {
+	// 			bulletK = bullet
+	// 			break;
+	// 		}
+	// 	}
+	// 	if (bulletK) {
+	// 		bulletK.gameObj.use(sprite('hidden'));
+	// 	}
+	// 	if (!playerK || !bulletK) {
+	// 		console.error('onCollide player-bullet error - entity not found', playerK, bulletK);
+	// 		return;
+	// 	}
+	// 	sendEvent(EVENTS.COLLIDE, { playerId: playerK.id, bulletId: bulletK.id })
+	// })
 	onCollide("bullet", "shelter", (element1, element2) => {
 		let shelterK, bulletK;
 		for (const shelterId of Object.getOwnPropertyNames(clientWorldState.shelters)) {
@@ -982,11 +1009,21 @@ scene("lose", (score) => {
 	addButton("Leaderboard",
 		vec2(width() / 2, height() / 2 + 208),
 		() => {
+			stopSendState();
+			clearEventHandlers(EVENTS.PLAYERSTATE);
+			clearEventHandlers(EVENTS.WORLDSTATE);
+			clearEventHandlers(EVENTS.LEADERBOARD);
+			clearWorld();
 		go('leaderboard');
 	})
 	const battleButton = addButton("To Battle!", vec2(width() / 2, height() / 2 + 308), () => {
 		const seconds = Math.ceil((WAIT_TIME - (Date.now() - startedAt)) / 1000);
 		if (seconds > 0) return;
+		stopSendState();
+		clearEventHandlers(EVENTS.PLAYERSTATE);
+		clearEventHandlers(EVENTS.WORLDSTATE);
+		clearEventHandlers(EVENTS.LEADERBOARD);
+		clearWorld();
 		go('battleground');
 	});
 	battleButton.btnTxt.onUpdate(() => {
