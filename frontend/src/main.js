@@ -67,6 +67,7 @@ loadSprite("logo", "./sprites/logo.png")
 
 
 
+
 loadSound("score", "./examples/sounds/score.mp3")
 const FONT = "apl386"
 loadFont(FONT, "./examples/fonts/apl386.ttf", { outline: 4, filter: "linear" })
@@ -106,20 +107,20 @@ function getUser() {
 
 const getLbText = () => {
 	let leaderBoardMock = [
-		{ id: '', nickname: '1234567890', score: 90 },
-		{ id: '', nickname: '1234567890', score: 91 },
-		{ id: '', nickname: '1234567890', score: 92 },
-		{ id: '', nickname: '1234567890', score: 93 },
-		{ id: '', nickname: '1234567890', score: 94 },
-		{ id: '', nickname: '1234567890', score: 95 },
-		{ id: '', nickname: '1234567890', score: 96 },
-		{ id: '', nickname: '1234567890', score: 97 },
-		{ id: '', nickname: '1234567890', score: 98 },
-		{ id: '', nickname: '1234567890', score: 99 },
-		{ id: 'a', nickname: '1234567890', score: 1 },
+		{ id: '1', nickname: 'Playrix', score: 20 },
+		{ id: '', nickname: 'ServerTeam', score: 404 },
+		{ id: '', nickname: 'Nikolas Keij', score: 14 },
+		{ id: '', nickname: 'Timoty Shalame', score: 11 },
+		{ id: '', nickname: 'Britney Spears', score: 4 },
+		{ id: '', nickname: '50 Cent', score: 18 },
+		{ id: '', nickname: 'Daenerys', score: 12 },
+		{ id: '', nickname: 'Sindragosa', score: 8 },
+		{ id: '', nickname: 'Artas', score:5 },
+		{ id: '', nickname: 'KingMatch', score: 0 },
+		{ id: 'a', nickname: 'Me', score: 1 },
 	];
 
-	const currLeaderBoard = leaderBoard || leaderBoardMock;
+	const currLeaderBoard =  leaderBoardMock;
 	let lbText = "";
 	lbText += `Place - Nickname - Score\n`
 	currLeaderBoard.sort((a,b) => b.score - a.score);
@@ -1082,7 +1083,7 @@ scene('waitconnect', async () => {
 	])
 
 	interval = setInterval(()=> {
-		if (!connected || Date.now() - loggedAt < 2500) {
+		if (!connected || Date.now() - loggedAt < 500000) {
 			return;
 		}
 		clearInterval(interval);
